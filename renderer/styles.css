@@ -129,6 +129,10 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; overflow: hidden; }
+/* a phone: no double-tap zoom, no text inflation, and no rubber-band bounce (on the iPhone the bounce takes the finger
+   before «pull down to close» can, gestures.js) */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html.android * { overscroll-behavior-y: none; }
 body {
   font-family: var(--font); color: var(--ink); font-size: 13.5px; line-height: 1.35;
   background: linear-gradient(158deg, var(--bg-1) 0%, var(--bg-2) 55%, var(--bg-3) 100%);
@@ -1610,7 +1614,8 @@ body.mini .mini-bar { position: fixed; inset: 0; display: grid; grid-template-co
    Room from the status bar and the gesture/nav bar, buttons in even rows, sheets that come up from the bottom */
 .nav-s { display: none; }
 @media (max-width: 760px) {
-  #app { gap: 10px; padding: calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 10px); }
+  /* the iPhone's home bar zone (34px) is mostly air: the deck may come closer to it than to the screen's edge */
+  #app { gap: 10px; padding: calc(env(safe-area-inset-top) + 10px) 10px max(10px, calc(env(safe-area-inset-bottom) - 14px)); }
 
   /* titlebar: one even row — mark, search, Soft/Deep, settings — all 40px tall */
   .titlebar { gap: 8px; min-height: 44px; }

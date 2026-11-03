@@ -12,7 +12,7 @@ import UniformTypeIdentifiers
  * Paths given to the page are stable — «/Documents/…» and «/Caches/…» — because the real container path
  * changes when the app is reinstalled (AltStore re-signs it every week); `roots` tells the page where they are now.
  */
-@objc(MusicLibraryPlugin)
+@objc(MusicLibrary) // the JS name: Capacitor can also find the plugin by it
 public class MusicLibraryPlugin: CAPPlugin, CAPBridgedPlugin, UIDocumentPickerDelegate {
     public let identifier = "MusicLibraryPlugin"
     public let jsName = "MusicLibrary"

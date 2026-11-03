@@ -3,7 +3,7 @@ import Capacitor
 
 /// The iPhone side of android/…/MediaControlsPlugin.java. The lock screen and Control Center are fed by
 /// WebKit itself from the page's navigator.mediaSession, so update / stop have nothing to do here.
-@objc(MediaControlsPlugin)
+@objc(MediaControls) // the JS name: Capacitor can also find the plugin by it
 public class MediaControlsPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "MediaControlsPlugin"
     public let jsName = "MediaControls"
