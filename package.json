@@ -22,6 +22,7 @@
     "@capacitor/android": "^8.5.3",
     "@capacitor/cli": "^8.5.3",
     "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.6.0",
     "electron": "^44.5.1",
     "electron-builder": "^26.15.3"
   },

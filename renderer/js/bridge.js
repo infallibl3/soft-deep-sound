@@ -1,6 +1,7 @@
 /**
  * Bridge to the main process. In Electron this is window.sds (preload).
- * In the Android app (Capacitor) the phone's music comes from the MusicLibrary plugin (android/…/MusicLibraryPlugin.java).
+ * In the Android app (Capacitor) the phone's music comes from the MusicLibrary plugin (android/…/MusicLibraryPlugin.java);
+ * the iPhone app has its own MusicLibrary (ios/App/App/MusicLibraryPlugin.swift) with the same calls plus a file picker.
  * Opened in a plain browser (UI development / tests) a mock with synthesized demo tracks is used.
  */
 const cap = window.Capacitor;
@@ -9,7 +10,10 @@ import { createWebSearch } from './websearch.js';
 import { t as tr } from './i18n.js';
 import { createRepair } from './mb-repair.js';
 
+// «isAndroid» means the phone app, Android or iPhone: they share everything but where the music comes from
 export const isAndroid = !window.sds && !!(cap && cap.isNativePlatform && cap.isNativePlatform());
+export const isIOS = isAndroid && cap.getPlatform() === 'ios';
+const OS = isIOS ? 'iOS' : 'Android';
 export const isMock = !window.sds && !isAndroid;
 
 function wav(channels, sr) {
@@ -173,7 +177,7 @@ function downloadError(code) {
 async function lrclib({ title, artist, album, duration }, { online } = {}) {
   title = stripJunk(title); artist = stripJunk(artist);
   if (!online || !title || (!artist && !(duration > 0))) return null;
-  const ua = 'SoftDeepSound (Android; https://github.com/infallibl3/soft-deep-sound)';
+  const ua = `SoftDeepSound (${OS}; https://github.com/infallibl3/soft-deep-sound)`;
   const ask = (url) => nativeJSON(url, { headers: { 'User-Agent': ua, 'Lrclib-Client': ua } });
   const pick = (r) => (r && r.instrumental ? '[instrumental]' : r && (r.syncedLyrics || r.plainLyrics) ? (r.syncedLyrics || r.plainLyrics).trim() : '');
   const near = (r) => !(duration > 0) || !r.duration || Math.abs(r.duration - duration) <= 3;
@@ -196,7 +200,7 @@ async function lrclib({ title, artist, album, duration }, { online } = {}) {
 /** the phone's library repair (renderer/js/mb-repair.js): JSON over native HTTP, artwork saved by MusicLibraryPlugin.saveCover */
 let repairInst = null;
 function repairer() {
-  const ua = 'SoftDeepSound (Android; https://github.com/infallibl3/soft-deep-sound)';
+  const ua = `SoftDeepSound (${OS}; https://github.com/infallibl3/soft-deep-sound)`;
   return repairInst || (repairInst = createRepair({
     getJSON: (url) => nativeJSON(url, { timeout: 15000, headers: { 'User-Agent': ua } }),
     saveImage: async (url, key) => (await cap.nativePromise('MusicLibrary', 'saveCover', { url, key })).path || null
@@ -227,19 +231,31 @@ function android() {
     return { id: t.id, path: p, title, artist, album, duration: t.duration,
       cover: t.cover || null, format, lossless: /FLAC|WAV/.test(format), year: t.year || null, addedAt: t.addedAt || Date.now(), bpm: null };
   };
+  // iPhone: paths are «/Documents/…» and «/Caches/…», since the real folders move when AltStore reinstalls the app
+  let roots = null;
+  const rootsReady = isIOS ? call('roots').then((r) => { roots = r; }, () => {}) : Promise.resolve();
+  const iosFile = (p) => {
+    const m = /^\/(Documents|Caches)(\/.*)$/.exec(p);
+    return m && roots ? (m[1] === 'Documents' ? roots.documents : roots.caches) + m[2].split('/').map(encodeURIComponent).join('/') : null;
+  };
   return {
     ...base,
     isAndroid: true,
+    isIOS,
     // files on the phone and cached artwork go through Capacitor's local server (same origin, so Web Audio can read them)
-    mediaUrl: (p) => (p && p.startsWith('/') ? cap.convertFileSrc('file://' + p) : base.mediaUrl(p)),
+    mediaUrl: (p) => (isIOS && iosFile(p || '') ? cap.convertFileSrc('file://' + iosFile(p)) : p && p.startsWith('/') ? cap.convertFileSrc('file://' + p) : base.mediaUrl(p)),
     store: {
-      load: async () => { try { return JSON.parse(localStorage.getItem('sds-library') || 'null'); } catch { return null; } },
+      load: async () => { await rootsReady; try { return JSON.parse(localStorage.getItem('sds-library') || 'null'); } catch { return null; } },
       save: async (d) => { try { localStorage.setItem('sds-library', JSON.stringify(d)); if (d && d.settings) localStorage.setItem('sds-theme', d.settings.theme); return true; } catch { return false; } }
     },
     library: {
       ...base.library,
-      // «add music» on a phone = everything Android knows as music; there is no file picker to walk through
-      pick: async () => (await scan()).map((t) => t.path),
+      // «add music» on Android = everything Android knows as music; there is no file picker to walk through.
+      // The iPhone shows only the app's own folder: «add music» opens the system picker and copies the files in.
+      pick: async (kind) => {
+        if (isIOS && kind !== 'rescan') await call('importFiles', { folder: kind === 'folder' });
+        return (await scan()).map((t) => t.path);
+      },
       probe: async (paths) => { if (paths.some((p) => !found.has(p))) await scan(); return paths.map(track).filter(Boolean); },
       exists: async (p) => (await call('exists', { paths: [p] })).exists[0],
       existsMany: async (paths) => (await call('exists', { paths })).exists,
@@ -251,7 +267,7 @@ function android() {
     web: (() => {
       const ws = createWebSearch({
         tm: (k) => tr('ws.' + k),
-        getJSON: async (url, timeout = 10000) => { const d = await nativeJSON(url, { timeout, headers: { 'User-Agent': 'SoftDeepSound/1.0 (Android music player)' } }); if (d === null) throw new Error('404 ' + url); return d; }
+        getJSON: async (url, timeout = 10000) => { const d = await nativeJSON(url, { timeout, headers: { 'User-Agent': `SoftDeepSound/1.0 (${OS} music player)` } }); if (d === null) throw new Error('404 ' + url); return d; }
       });
       let onProgress = () => {};
       cap.nativeCallback('MusicLibrary', 'addListener', { eventName: 'download' }, (d) => { if (d && d.id) onProgress(d); });
@@ -280,7 +296,8 @@ function android() {
     app: { ...base.app, minimize: () => cap.nativePromise('MediaControls', 'minimize', {}).catch(() => {}),
       // the phone's status bar icons follow the theme
       setTone: (light) => cap.nativePromise('MediaControls', 'setBars', { light }).catch(() => {}) },
-    media: {
+    // iPhone: WebKit feeds the lock screen and Control Center from navigator.mediaSession (app.js) by itself
+    media: isIOS ? { state() {}, onCommand() {} } : {
       state: (st) => {
         if (!st.hasTrack) return cap.nativePromise('MediaControls', 'stop', {}).catch(() => {});
         const { title, artist, album, cover, playing, position, duration, rate } = st;

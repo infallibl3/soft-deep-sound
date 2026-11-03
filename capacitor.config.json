@@ -1,5 +1,10 @@
 {
   "appId": "com.konstantin.softdeepsound",
   "appName": "Soft&Deep Sound",
-  "webDir": "renderer"
+  "webDir": "renderer",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#eef3fb",
+    "scrollEnabled": false
+  }
 }

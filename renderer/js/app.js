@@ -638,8 +638,8 @@ function viewLibrary(host) {
     sub: list.length ? `${tn('tracks', list.length)} · ${fmtLong(total(list))}` : tr('lib.empty'),
     actions: list.length ? [seg, pill(tr('v.shuffle'), ICON.kShuffle, () => { S.shuffle = true; syncModeBtns(); playFrom(list.map((t) => t.id), (Math.random() * list.length) | 0); }, true),
       pill(tr('v.play'), ICON.kPlay, () => playFrom(list.map((t) => t.id), 0)),
-      // a phone has no folders to pick: look through Android's music again for new files
-      isAndroid ? pill(tr('and.rescan'), ICON.kImport, () => pickImport('files'), true) : null].filter(Boolean) : []
+      // a phone has no folders to pick: look through Android's music (the iPhone app's own folder) again for new files
+      isAndroid ? pill(tr('and.rescan'), ICON.kImport, () => pickImport('rescan'), true) : null].filter(Boolean) : []
   }));
   if (!list.length) return emptyState(host, tr('lib.emptyT'), tr('lib.emptyD'));
   const plaque = repairPlaque();
@@ -2030,7 +2030,7 @@ async function boot() {
   await splash;
   if (isMock && !S.tracks.length) await importPaths(await bridge.library.pick('files'));
   // first start on a phone: ask for «Music and audio» and bring in everything Android already knows
-  if (isAndroid && !S.tracks.length) { try { await importPaths(await bridge.library.pick('files')); } catch (e) { toast(tr(/permission/.test(e.message) ? 'and.denied' : 'toast.importFail', { msg: e.message })); } }
+  if (isAndroid && !S.tracks.length) { try { await importPaths(await bridge.library.pick('rescan')); } catch (e) { toast(tr(/permission/.test(e.message) ? 'and.denied' : 'toast.importFail', { msg: e.message })); } }
   if (!S.settings.tourDone && !phone.matches && !/notour/.test(location.hash)) setTimeout(() => { if (!$('#modal').classList.contains('open')) tour.start(WELCOME); }, 900);
   setTimeout(() => backgroundAnalyze(), 6000);
 }

@@ -1,0 +1,39 @@
+name: Build iPhone app (.ipa for AltStore / SideStore)
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths: ['ios/**', 'renderer/**', 'capacitor.config.json', 'package.json', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: write         # to attach the .ipa to a release
+jobs:
+  ipa:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx cap sync ios
+      # no Apple certificate: an unsigned build; AltStore / SideStore sign it with the user's own Apple ID on install
+      - run: >
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release
+          -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build
+          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+      - name: Pack the .ipa
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          mkdir -p Payload out
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qr "out/SoftDeepSound-$VERSION.ipa" Payload
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SoftDeepSound-iOS
+          path: out/*.ipa
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.ipa

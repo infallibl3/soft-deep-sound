@@ -408,7 +408,7 @@ export function createAppearance({ S, save, bridge, toast, hslToRgb, rgbToHsl, c
   }
 
   /* ------------------------------ interface font ------------------------------ */
-  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isAndroid = /Android|iPhone|iPad/i.test(navigator.userAgent); // a phone: no Windows fonts there
   /** tiles, each written in its own font: the theme's, the built-in list, and «from the computer» */
   function fontRow() {
     const wrap = h('div', { class: 'set-row ap-font-row' });
