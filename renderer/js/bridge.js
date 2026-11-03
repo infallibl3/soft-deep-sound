@@ -233,7 +233,8 @@ function android() {
   };
   // iPhone: paths are «/Documents/…» and «/Caches/…», since the real folders move when AltStore reinstalls the app
   let roots = null;
-  const rootsReady = isIOS ? call('roots').then((r) => { roots = r; }, () => {}) : Promise.resolve();
+  // (never more than 4 s: a missing answer must not hold the whole start)
+  const rootsReady = isIOS ? Promise.race([call('roots').then((r) => { roots = r; }, () => {}), new Promise((r) => setTimeout(r, 4000))]) : Promise.resolve();
   const iosFile = (p) => {
     const m = /^\/(Documents|Caches)(\/.*)$/.exec(p);
     return m && roots ? (m[1] === 'Documents' ? roots.documents : roots.caches) + m[2].split('/').map(encodeURIComponent).join('/') : null;
